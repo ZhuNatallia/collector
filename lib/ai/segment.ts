@@ -1,12 +1,28 @@
-import { demoObjects } from './mock-data';
-import { DetectedObject } from '@/types';
+import { Category, DetectedObject } from '@/types';
+import { infer, jpeg, loadImage, Usage } from './replicate';
 
-/** Mock-first adapter. Replace the demo branch with Replicate/Fal.ai SAM or YOLO. */
-export async function segmentRoomImage(imageUrl: string): Promise<DetectedObject[]> {
-  if (!process.env.NEXT_PUBLIC_SEGMENTATION_ENDPOINT) return demoObjects;
-  const response = await fetch(process.env.NEXT_PUBLIC_SEGMENTATION_ENDPOINT, {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({imageUrl}),
+type Detection = { category: Category; label: string; confidence: number | null; bbox: [number, number, number, number] };
+
+type DetectionResponse = { detections: Detection[] } & (
+  { source: 'replicate'; usage: Usage } | { source: 'mock'; usage?: never }
+);
+
+export async function prepareRoomImage(url: string) {
+  const source = await loadImage(url);
+  return jpeg(source, 0, 0, source.naturalWidth, source.naturalHeight, 1280, 1_000_000 + 'data:image/jpeg;base64,'.length);
+}
+
+export async function segmentRoomImage(image: Awaited<ReturnType<typeof prepareRoomImage>>) {
+  const result = await infer<DetectionResponse>('detect', image.url);
+  if (result.source !== 'replicate' && result.source !== 'mock') throw new Error('Неизвестный источник распознавания.');
+  const percent = (value: number, size: number) => Math.max(0, Math.min(100, 100 * value / size));
+  const objects: DetectedObject[] = result.detections.flatMap(({ bbox: [x1, y1, x2, y2], ...item }) => {
+    const x = percent(x1, image.width);
+    const y = percent(y1, image.height);
+    const width = percent(x2, image.width) - x;
+    const height = percent(y2, image.height) - y;
+    if (width <= 0 || height <= 0) return [];
+    return [{ ...item, id: crypto.randomUUID(), bbox: { x, y, width, height } }];
   });
-  if (!response.ok) throw new Error('Не удалось проанализировать изображение');
-  return response.json();
+  return { objects, source: result.source, usage: result.usage };
 }

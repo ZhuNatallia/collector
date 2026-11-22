@@ -1,9 +1,11 @@
-# API contract (backend deployment)
+# Контракт AI-интеграции
 
-The hosted MVP uses static export so it works without secrets. These contracts describe the server routes to wire when deploying a Next.js server or Worker backend:
+Статический Next.js вызывает `POST /functions/v1/interior-ai` с `Content-Type: application/json` и access token Supabase Auth. Функция проверяет пользователя по списку разрешённых UUID.
 
-- `POST /api/room/segment` — `{ imageUrl }` → `DetectedObject[]`; call Replicate/Fal.ai SAM or YOLO, store source/crops in Supabase Storage.
-- `POST /api/products/match` — `{ cropUrl, category, tier?, maxDimensions?, inStock? }` → `Product[]`; create a CLIP/DINOv2 512-dimensional embedding and call `match_furniture`.
-- `POST /api/suppliers/import` — multipart YML/XML/CSV feed; validate, normalize dimensions, and upsert catalog entries and embeddings.
+- `{ mode: "detect", image }` → `{ source: "replicate", detections, usage }`. Поле `image` принимает JPEG data URL размером до 750 КБ после декодирования, с максимальной стороной 1280 пикселей. В каждом объекте есть `label` от модели, `category` из каталога, `confidence` от 0 до 1 и `bbox: [x1, y1, x2, y2]` в пикселях переданного изображения. Начало координат находится слева вверху. Первые две координаты задают левый верхний угол, последние две — правый нижний. Браузер переводит bbox в `{ x, y, width, height }` в процентах и ставит метку в центр. Пустой массив означает, что предметы из списка категорий не найдены.
+- При `INTERIOR_AI_MODE=mock` тот же запрос возвращает `{ source: "mock", detections }` с условным bbox и `confidence: null`. Replicate в этом режиме не вызывается.
+- `{ mode: "embed", image }` → `{ embedding, usage }`. Браузер вырезает выбранный bbox. Функция даёт CLIP ViT-L/14 короткоживущую подписанную ссылку на JPEG в приватном Storage и удаляет файл после запроса. В серверном демо-режиме эта операция выключена.
+- `usage` содержит ID prediction и доступные времена Replicate в секундах. Ошибки возвращаются как `{ error, message }` с соответствующим HTTP-статусом.
+- `clip_catalog_indexed` проверяет наличие CLIP-векторов глобально или в категории. `match_furniture_clip` выполняет косинусный поиск по `products_rf.embedding_clip` с учётом RLS.
 
-Provider credentials must remain server-side. The browser demo has mock analysis and sample catalog data; it does not fetch live marketplace listings.
+Импорт поставщика читает загруженный файл локально. Для векторного поиска у карточек должны быть 768-мерные векторы изображений из той же версии CLIP, что и у crop.

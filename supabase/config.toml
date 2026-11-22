@@ -1,0 +1,3 @@
+[functions.interior-ai]
+# The handler verifies the Supabase access token via Auth before reading the body.
+verify_jwt = false

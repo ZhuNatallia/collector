@@ -1,7 +1,7 @@
 export type Tier = 'premium' | 'mid' | 'budget';
 export type Category = 'Диваны' | 'Кресла' | 'Столы' | 'Светильники' | 'Ковры' | 'Текстиль' | 'Декор' | 'Стулья';
 export type BBox = { x: number; y: number; width: number; height: number };
-export type DetectedObject = { id: string; category: Category; label: string; bbox: BBox; cropUrl?: string };
+export type DetectedObject = { id: string; category: Category; label: string; confidence?: number | null; bbox: BBox; cropUrl?: string };
 export type CurrencyCode = 'RUB' | 'BYN';
 export type CatalogCountry = 'RU' | 'BY';
 export type Product = { id:string; title:string; category:Category; tier:Tier; price:number; currency?:CurrencyCode; country?:CatalogCountry; store:string; inStock:boolean; availability?:string; dimensions:{length:number;width:number;height:number}; url:string; image:string; note?:string };
