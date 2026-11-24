@@ -3,31 +3,43 @@ import { FormEvent, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
 export function InteriorAiAccess({ signedIn }: { signedIn: boolean }) {
-  const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
   const [pending, setPending] = useState(false);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!supabase) return;
+    if (!supabase || pending) return;
+    const form = new FormData(event.currentTarget);
     setPending(true);
+    setStatus('');
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email, options: { shouldCreateUser: false, emailRedirectTo: window.location.origin + window.location.pathname },
+      const { error } = await supabase.auth.signInWithPassword({
+        email: String(form.get('email')).trim(),
+        password: String(form.get('password')),
       });
-      setStatus(error ? 'Не удалось отправить ссылку для входа.' : 'Откройте ссылку из письма, чтобы войти.');
+      if (error?.code === 'invalid_credentials') {
+        setStatus('Проверьте email и пароль тестового пользователя.');
+      } else if (error?.code === 'email_not_confirmed') {
+        setStatus('Email пользователя ещё не подтверждён в Supabase.');
+      } else if (error?.status === 429) {
+        setStatus('Слишком много попыток входа. Попробуйте позже.');
+      } else if (error) {
+        setStatus('Не удалось войти. Попробуйте ещё раз.');
+      }
     } catch {
-      setStatus('Не удалось отправить ссылку для входа.');
+      setStatus('Не удалось подключиться к Supabase.');
     } finally {
       setPending(false);
     }
   }
 
-  if (signedIn) return null;
-  return <form className="canvas-controls" onSubmit={signIn}>
-    <input type="email" aria-label="Почта Supabase" placeholder="Почта для входа" required
-      value={email} onChange={event => setEmail(event.target.value)}/>
-    <button type="submit" className="button" disabled={pending}>Войти для AI-анализа</button>
-    {status && <span role="status">{status}</span>}
+  if (signedIn) return <p className="subtle" role="status">Вход выполнен</p>;
+  return <form className="canvas-controls" onSubmit={signIn} style={{ flexWrap: 'wrap', gap: 8 }}>
+    <input name="email" type="email" aria-label="Email" placeholder="Email" autoComplete="username" required/>
+    <input name="password" type="password" aria-label="Пароль" placeholder="Пароль" autoComplete="current-password" required/>
+    <button type="submit" className="button" disabled={pending}>
+      {pending ? 'Входим…' : 'Войти для AI-анализа'}
+    </button>
+    {status && <span role="alert">{status}</span>}
   </form>;
 }

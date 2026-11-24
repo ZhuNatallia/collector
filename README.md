@@ -15,7 +15,7 @@ npx next dev
 
 ### Развёртывание через Supabase Dashboard
 
-1. В существующем проекте откройте **Authentication → Users**. Подготовьте пользователя для входа по почте и скопируйте его UUID. В **Authentication → URL Configuration → Redirect URLs** добавьте URL фронтенда. Для входа по письму используйте шаблон со ссылкой подтверждения.
+1. В существующем проекте откройте **Authentication → Users**. Подготовьте пользователя с подтверждённым email и паролем, затем скопируйте его UUID.
 2. В **Edge Functions → Secrets** добавьте `INTERIOR_AI_USER_IDS` (разрешённые UUID через запятую), `INTERIOR_APP_ORIGINS` (origin фронтенда через запятую, с протоколом и без завершающего слеша), и для первой бесплатной проверки — `INTERIOR_AI_MODE=mock`. `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` предоставляет среда выполнения Supabase.
 3. Откройте **Edge Functions → Deploy a new function → Via Editor**. Укажите имя `interior-ai` и вставьте содержимое `supabase/functions/interior-ai/index.ts` в `index.ts`. Нажмите **Deploy function**. В настройках функции отключите **Verify JWT with legacy secret**. Настройки локального `supabase/config.toml` при вставке в редактор не переносятся. Обработчик сам проверяет пользовательский access token через Supabase Auth и сверяет UUID со списком доступа.
 
@@ -32,7 +32,7 @@ NEXT_PUBLIC_INTERIOR_AI=true
 NEXT_PUBLIC_INTERIOR_AI_MOCK=false
 ```
 
-Войдите по ссылке из письма, загрузите JPEG и проверьте запрос `POST /functions/v1/interior-ai` в браузере. Ожидается HTTP 200, `source: "mock"` и одна условная метка с `confidence: null`. Интерфейс показывает «Серверный демо-режим». ID prediction отсутствует. Для проверки CORS добавьте origin, с которого открыли фронтенд, например `http://localhost:3000`.
+Войдите по email и паролю, загрузите JPEG и проверьте запрос `POST /functions/v1/interior-ai` в браузере. Ожидается HTTP 200, `source: "mock"` и одна условная метка с `confidence: null`. Интерфейс показывает «Серверный демо-режим». ID prediction отсутствует. Для проверки CORS добавьте origin, с которого открыли фронтенд, например `http://localhost:3000`.
 
 ### Реальное распознавание и каталог
 
